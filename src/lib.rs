@@ -22,8 +22,10 @@ mod xml;
 
 use byteorder::ByteOrder;
 use byteorder::LittleEndian;
-use std::io::{Read, Seek};
+use byteorder::WriteBytesExt;
+use std::io::{Read, Seek, Write};
 use thiserror::Error;
+use std::fs::File;
 
 use crate::binaryxml::BinaryXmlDocument;
 pub use crate::xml::{Cdata, Element, Node, XmlDocument};
@@ -74,6 +76,9 @@ pub enum ParseError {
 pub fn parse<F: Read + Seek>(input: &mut F) -> Result<XmlDocument, ParseError> {
     let binaryxml = BinaryXmlDocument::read_from_file(input)?;
 
+    let mut out = File::create("test.xml").unwrap();
+    binaryxml.write_to_file(&mut out).unwrap();
+
     XmlDocument::new(
         binaryxml.elements,
         binaryxml.string_pool,
@@ -100,6 +105,21 @@ fn read_u32<F: Read + Seek>(input: &mut F) -> Result<u32, ParseError> {
     input.read_exact(&mut buf).map_err(ParseError::IoError)?;
 
     Ok(LittleEndian::read_u32(&buf))
+}
+
+fn write_u8<F: Write + Seek>(output: &mut F, v: u8) -> Result<usize, std::io::Error> {
+    output.write_u8(v)?;
+    Ok(1)
+}
+
+fn write_u16<F: Write + Seek>(output: &mut F, v: u16) -> Result<usize, std::io::Error> {
+    output.write_u16::<LittleEndian>(v)?;
+    Ok(2)
+}
+
+fn write_u32<F: Write + Seek>(output: &mut F, v: u32) -> Result<usize, std::io::Error> {
+    output.write_u32::<LittleEndian>(v)?;
+    Ok(4)
 }
 
 #[cfg(test)]

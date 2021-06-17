@@ -1,10 +1,10 @@
-use num_enum::TryFromPrimitive;
+use num_enum::{TryFromPrimitive, IntoPrimitive};
 use std::convert::TryFrom;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 use std::rc::Rc;
 
 use crate::stringpool::StringPool;
-use crate::{read_u16, read_u32, read_u8, ParseError};
+use crate::{read_u16, read_u32, read_u8, ParseError, write_u16, write_u32, write_u8};
 
 #[derive(Debug)]
 pub(crate) struct ResourceValue {
@@ -43,10 +43,18 @@ impl ResourceValue {
             n => Rc::new(format!("ResourceValueType::{:?}/{}", n, self.data)),
         }
     }
+
+    pub(crate) fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
+        let n = write_u16(output, self.size)?;
+        let n = n + write_u8(output, self.res)?;
+        let n = n + write_u8(output, self.data_type as u8)?;
+        let n = n + write_u32(output, self.data)?;
+        Ok(n)
+    }
 }
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, TryFromPrimitive)]
+#[derive(Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
 pub(crate) enum ResourceValueType {
     Null = 0x00,
     Reference = 0x01,

@@ -1,7 +1,7 @@
 use byteorder::ByteOrder;
 use byteorder::LittleEndian;
 use std::convert::TryFrom;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 use std::rc::Rc;
 
 use crate::binaryxml::ChunkHeader;
@@ -40,6 +40,10 @@ impl StringPoolHeader {
         };
 
         Ok(header)
+    }
+
+    fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
+        Ok(0)
     }
 }
 
@@ -104,6 +108,10 @@ impl StringPool {
         }
 
         Some(self.strings.get(i)?.clone())
+    }
+
+    pub(crate) fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
+        Ok(0)
     }
 }
 
