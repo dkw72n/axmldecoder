@@ -1,13 +1,13 @@
 use byteorder::ByteOrder;
 use byteorder::LittleEndian;
 use std::convert::TryFrom;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, Write, SeekFrom};
 use std::rc::Rc;
 
 use crate::binaryxml::ChunkHeader;
-use crate::{read_u32, ParseError};
+use crate::{read_u32, ParseError, write_u32, write_u16};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct StringPoolHeader {
     pub(crate) chunk_header: ChunkHeader,
     pub(crate) string_count: u32,
@@ -43,7 +43,13 @@ impl StringPoolHeader {
     }
 
     fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
-        Ok(0)
+        let mut n = self.chunk_header.write_to_file(output)?;
+        n += write_u32(output, self.string_count)?;
+        n += write_u32(output, self.style_count)?;
+        n += write_u32(output, self.flags)?;
+        n += write_u32(output, self.string_start)?;
+        n += write_u32(output, self.style_start)?;
+        Ok(n)
     }
 }
 
@@ -96,6 +102,8 @@ impl StringPool {
             )?));
         }
 
+        strings.push(Rc::new("hello_world".to_string()));
+
         Ok(Self {
             header: string_pool_header,
             strings,
@@ -111,8 +119,48 @@ impl StringPool {
     }
 
     pub(crate) fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
-        Ok(0)
+        let mut header = self.header.clone();
+        let offset_header = output.seek(SeekFrom::Current(0))?;
+        let mut n = self.header.write_to_file(output)?;
+        let offset_start = output.seek(SeekFrom::Current(0))?;
+        for i in 0..self.strings.len() {
+            n += write_u32(output,0)?;
+        }
+        let mut m = 0;
+        let mut v:Vec<u32> = vec![];
+        for i in &self.strings {
+            let c = write_utf16_string(output, i.as_str())?;
+            v.push(m);
+            m += c as u32;
+            n += c;
+        }
+        let offset_end = output.seek(SeekFrom::Current(0))?;
+        let n = n; // no more changed 
+
+        output.seek(SeekFrom::Start(offset_header))?;
+        header.chunk_header.size = n as u32;
+        header.string_count = self.strings.len() as u32;
+        header.style_count = 0; // FixMe
+        header.string_start = (self.strings.len() * 4 + std::mem::size_of::<StringPoolHeader>()) as u32;
+        header.write_to_file(output)?;
+
+        output.seek(SeekFrom::Start(offset_start))?;
+        for i in v {
+            write_u32(output, i)?;
+        }
+
+        output.seek(SeekFrom::Start(offset_end))?;        
+        Ok(n)
     }
+}
+
+fn write_utf16_string<F: Write + Seek>(output: &mut F, s: &str) -> Result<usize, std::io::Error> {
+    let mut n = write_u16(output, s.len() as u16)?;
+    for i in s.chars() {
+        n += write_u16(output, i as u16)?;
+    }
+    n += write_u16(output, 0)?;
+    Ok(n)
 }
 
 fn parse_offsets(string_data: &[u8], count: usize) -> Vec<u32> {
