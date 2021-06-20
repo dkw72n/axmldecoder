@@ -8,7 +8,7 @@ use crate::binaryxml::ChunkHeader;
 use crate::{read_u32, ParseError, write_u32, write_u16};
 
 #[derive(Debug, Clone)]
-pub(crate) struct StringPoolHeader {
+pub struct StringPoolHeader {
     pub(crate) chunk_header: ChunkHeader,
     pub(crate) string_count: u32,
     pub(crate) style_count: u32,
@@ -54,7 +54,7 @@ impl StringPoolHeader {
 }
 
 #[derive(Debug)]
-pub(crate) struct StringPool {
+pub struct StringPool {
     pub(crate) header: StringPoolHeader,
     pub(crate) strings: Vec<Rc<String>>,
 }

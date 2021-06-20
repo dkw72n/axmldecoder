@@ -27,7 +27,7 @@ use std::io::{Read, Seek, Write};
 use thiserror::Error;
 use std::fs::File;
 
-use crate::binaryxml::BinaryXmlDocument;
+pub use crate::binaryxml::BinaryXmlDocument;
 pub use crate::xml::{Cdata, Element, Node, XmlDocument};
 
 #[derive(Error, Debug)]
@@ -76,8 +76,8 @@ pub enum ParseError {
 pub fn parse<F: Read + Seek>(input: &mut F) -> Result<XmlDocument, ParseError> {
     let binaryxml = BinaryXmlDocument::read_from_file(input)?;
 
-    let mut out = File::create("test.xml").unwrap();
-    binaryxml.write_to_file(&mut out).unwrap();
+    //let mut out = File::create("test.xml").unwrap();
+    // binaryxml.write_to_file(&mut out).unwrap();
 
     XmlDocument::new(
         binaryxml.elements,
@@ -128,6 +128,7 @@ mod tests {
     use std::fs::File;
     use std::path::PathBuf;
 
+    /*
     #[test]
     fn test_parse() {
         let mut examples = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -138,5 +139,47 @@ mod tests {
             let mut f = File::open(entry.path()).unwrap();
             parse(&mut f).expect(&format!("{} failed to parse", entry.path().display()));
         }
+    }
+    */
+
+
+    #[test]
+    fn test_u8_rw() {
+        let src = [42u8;1];
+        let mut dst: Vec<u8> = vec![];
+        let mut cursor = std::io::Cursor::new(src);
+        let v = read_u8(&mut cursor).unwrap();
+        assert_eq!(v, 42u8);
+        let mut cursor = std::io::Cursor::new(&mut dst);
+        let n = write_u8(&mut cursor, v).unwrap();
+        assert_eq!(n, 1);
+        assert_eq!(&src, dst.as_slice());
+
+    }
+
+    #[test]
+    fn test_u16_rw() {
+        let src = [43u8, 99u8];
+        let mut dst: Vec<u8> = vec![];
+        let mut cursor = std::io::Cursor::new(src);
+        let v = read_u16(&mut cursor).unwrap();
+        assert_eq!(v, 99 * 256 + 43);
+        let mut cursor = std::io::Cursor::new(&mut dst);
+        let n = write_u16(&mut cursor, v).unwrap();
+        assert_eq!(n, 2);
+        assert_eq!(&src, dst.as_slice());
+    }
+
+    #[test]
+    fn test_u32_rw() {
+        let src = [0xfau8, 0xceu8, 0xb0u8, 0x0cu8];
+        let mut dst: Vec<u8> = vec![];
+        let mut cursor = std::io::Cursor::new(src);
+        let v = read_u32(&mut cursor).unwrap();
+        assert_eq!(v, 0x0cb0cefa);
+        let mut cursor = std::io::Cursor::new(&mut dst);
+        let n = write_u32(&mut cursor, v).unwrap();
+        assert_eq!(n, 4);
+        assert_eq!(&src, dst.as_slice());
     }
 }

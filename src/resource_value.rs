@@ -2,11 +2,12 @@ use num_enum::{TryFromPrimitive, IntoPrimitive};
 use std::convert::TryFrom;
 use std::io::{Read, Seek, Write};
 use std::rc::Rc;
+use std::cmp::Eq;
 
 use crate::stringpool::StringPool;
 use crate::{read_u16, read_u32, read_u8, ParseError, write_u16, write_u32, write_u8};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) struct ResourceValue {
     pub(crate) size: u16,
     pub(crate) res: u8,
@@ -54,7 +55,7 @@ impl ResourceValue {
 }
 
 #[repr(u8)]
-#[derive(Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
+#[derive(Debug, PartialEq, TryFromPrimitive, Copy, Clone, Eq)]
 pub(crate) enum ResourceValueType {
     Null = 0x00,
     Reference = 0x01,
@@ -70,4 +71,23 @@ pub(crate) enum ResourceValueType {
     ColorRgb8 = 0x1d,
     ColorArgb4 = 0x1e,
     ColorRgb4 = 0x1f,
+}
+
+
+    
+#[test]
+fn test_res_value_rw(){
+    let src = [0x08, 0x00, 0x00, 0x12, 0x00, 0x00, 0x00, 0x00];
+    let mut dst: Vec<u8> = vec![];
+    let mut cursor = std::io::Cursor::new(src);
+    let v = ResourceValue::read_from_file(&mut cursor).unwrap();
+    assert_eq!(v, ResourceValue {
+        size: 8,
+        res: 0,
+        data_type: ResourceValueType::Boolean,
+        data: 0
+    });
+    let mut cursor = std::io::Cursor::new(&mut dst);
+    let n = v.write_to_file(&mut cursor).unwrap();
+    assert_eq!(&src, dst.as_slice());
 }

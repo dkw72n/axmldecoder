@@ -7,14 +7,14 @@ use crate::{ParseError, read_u16, read_u32, write_u16, write_u32};
 use byteorder::WriteBytesExt;
 use num_enum::{TryFromPrimitive, IntoPrimitive};
 
-pub(crate) struct BinaryXmlDocument {
-    pub(crate) elements: Vec<XmlElement>,
-    pub(crate) string_pool: StringPool,
-    pub(crate) resource_map: Vec<u32>,
+pub struct BinaryXmlDocument {
+    pub elements: Vec<XmlElement>,
+    pub string_pool: StringPool,
+    pub resource_map: Vec<u32>,
 }
 
 impl BinaryXmlDocument {
-    pub(crate) fn read_from_file<F: Read + Seek>(input: &mut F) -> Result<Self, ParseError> {
+    pub fn read_from_file<F: Read + Seek>(input: &mut F) -> Result<Self, ParseError> {
         let header = ChunkHeader::read_from_file(input)?;
 
         if header.typ != ResourceType::Xml {
@@ -75,7 +75,7 @@ impl BinaryXmlDocument {
         })
     }
 
-    pub(crate) fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
+    pub fn write_to_file<F: Write + Seek>(self:&Self, output: &mut F) -> Result<usize, std::io::Error> {
         let header = ChunkHeader {
             typ: ResourceType::Xml,
             header_size: 8,
@@ -158,7 +158,7 @@ impl ChunkHeader {
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug)]
-pub(crate) enum XmlElement {
+pub enum XmlElement {
     XmlStartNameSpace(XmlStartNameSpace),
     XmlEndNameSpace(XmlEndNameSpace),
     XmlStartElement(XmlStartElement),
@@ -213,7 +213,7 @@ impl XmlNodeHeader {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlStartNameSpace {
+pub struct XmlStartNameSpace {
     pub(crate) header: XmlNodeHeader,
     pub(crate) prefix: u32,
     pub(crate) uri: u32,
@@ -245,7 +245,7 @@ impl XmlStartNameSpace {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlEndNameSpace {
+pub struct XmlEndNameSpace {
     pub(crate) header: XmlNodeHeader,
     pub(crate) prefix: u32,
     pub(crate) uri: u32,
@@ -277,7 +277,7 @@ impl XmlEndNameSpace {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct XmlAttrExt {
+pub struct XmlAttrExt {
     pub(crate) ns: u32,
     pub(crate) name: u32,
     pub(crate) attribute_start: u16,
@@ -329,7 +329,7 @@ impl XmlAttrExt {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlAttribute {
+pub struct XmlAttribute {
     pub(crate) ns: u32,
     pub(crate) name: u32,
     pub(crate) raw_value: u32,
@@ -363,7 +363,7 @@ impl XmlAttribute {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlStartElement {
+pub struct XmlStartElement {
     pub(crate) header: XmlNodeHeader,
     pub(crate) attr_ext: XmlAttrExt,
     pub(crate) attributes: Vec<XmlAttribute>,
@@ -410,7 +410,7 @@ impl XmlStartElement {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlEndElement {
+pub struct XmlEndElement {
     pub(crate) header: XmlNodeHeader,
     pub(crate) ns: u32,
     pub(crate) name: u32,
@@ -439,7 +439,7 @@ impl XmlEndElement {
 }
 
 #[derive(Debug)]
-pub(crate) struct XmlCdata {
+pub struct XmlCdata {
     pub(crate) header: XmlNodeHeader,
     pub(crate) data: u32,
     pub(crate) typed_data: ResourceValue,
@@ -481,4 +481,25 @@ impl XmlElement {
             XmlElement::XmlCdata(d) => d.write_to_file(output),
         }
     }
+}
+
+#[test]
+fn test_xml_cdata_rw(){
+    let src = [
+        0x04, 0x01, // type
+        0x10, 0x00, // header_size
+        28, 0, 0, 0, // size
+        0x99, 0x00, 0x00, 0x00, // line_no
+        0xff, 0xff, 0xff, 0xff, // comment
+        0x12, 0x34, 0x56, 0x78, // data
+        0x08, 0x00, 0x00, 0x12, 0x00, 0x00, 0x00, 0x00 // data_typed
+    ];
+    let mut dst: Vec<u8> = vec![];
+    let mut cursor = std::io::Cursor::new(src);
+    let ch = ChunkHeader::read_from_file(&mut cursor).unwrap();
+    let v = XmlCdata::read_from_file(&mut cursor, &ch).unwrap();
+    
+    let mut cursor = std::io::Cursor::new(&mut dst);
+    let n = v.write_to_file(&mut cursor).unwrap();
+    assert_eq!(&src, dst.as_slice());
 }
